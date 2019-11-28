@@ -70,4 +70,37 @@ private:
 
 } // namespace plt
 
+namespace plt {
+
+class PlotSettings
+{
+public:
+	PlotSettings();
+	~PlotSettings() = default;
+
+	PlotSettings(const PlotSettings& ) = default;
+	PlotSettings(PlotSettings&& )      = default;
+
+public:
+	PlotSettings& operator= (const PlotSettings& ) = default;
+	PlotSettings& operator= (PlotSettings&& )      = default;
+
+public:
+	void scroll(int dx, int dy);
+	void adjust();
+	double spanX() const {return maxX - minX;}
+	double spanY() const {return maxY - minY;}
+	double minX;
+	double maxX;
+	int numXTicks;
+	double minY;
+	double maxY;
+	int numYTicks;
+
+private:
+	static void adjustAxis(double& min, double& max, int& numTicks);
+};
+
+} // namespace plt
+
 #endif // PLOTTER_H
