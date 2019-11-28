@@ -1,7 +1,16 @@
 #ifndef PLOTTER_H
 #define PLOTTER_H
 
+#include <QMap>
+#include <QPixmap>
+#include <QVector>
 #include <QWidget>
+
+class QToolButton;
+
+namespace plt {
+class PlotSettings;
+} // namespace plt
 
 namespace plt {
 
@@ -19,6 +28,44 @@ public:
 public:
 	Plotter& operator= (const Plotter& ) = delete;
 	Plotter& operator= (Plotter&& )      = delete;
+
+public:
+	void setPlotSettings(const PlotSettings& settings);
+	void setCurveData(int id, const QVector<QPointF>& data);
+	void clearCurve(int id);
+
+	QSize minimumSizeHint() const override;
+	QSize sizeHint() const override;
+
+public slots:
+	void zoomIn();
+	void zoomOut();
+
+protected:
+	void paintEvent(QPaintEvent* event) override;
+	void resizeEvent(QResizeEvent* event) override;
+	void mousePressEvent(QMouseEvent* event) override;
+	void mouseMoveEvent(QMouseEvent* event) override;
+	void mouseReleaseEvent(QMouseEvent* event) override;
+	void keyPressEvent(QKeyEvent* event) override;
+	void wheelEvent(QWheelEvent* event) override;
+
+private:
+	void updateRubberBandRegion();
+	void refreshPixmap();
+	void drawGrid(QPainter* painter);
+	void drawCurves(QPainter* painter);
+
+	enum {MARGIN = 50};
+
+	QToolButton* _pZoomInBtn;
+	QToolButton* _pZoomOutBtn;
+	QMap<int, QVector<QPointF>> _curveMap {};
+	QVector<PlotSettings> _zoomStack {};
+	int _curZoom {0};
+	bool _rubberBandIsShown {false};
+	QRect _rubberBandRect {};
+	QPixmap _pixmap {};
 };
 
 } // namespace plt
