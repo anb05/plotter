@@ -3,6 +3,7 @@
 #include <QIcon>
 #include <QToolButton>
 #include <QStylePainter>
+#include <QMouseEvent>
 #include <QStyleOptionFocusRect>
 
 namespace plt {
@@ -87,6 +88,7 @@ void Plotter::zoomOut()
 
 void Plotter::paintEvent(QPaintEvent* event)
 {
+	Q_UNUSED(event)
 	QStylePainter painter(this);
 	painter.drawPixmap(0, 0, _pixmap);
 
@@ -105,42 +107,128 @@ void Plotter::paintEvent(QPaintEvent* event)
 
 void Plotter::resizeEvent(QResizeEvent* event)
 {
-
+	Q_UNUSED(event)
+	int x = width() - (_pZoomInBtn->width() + _pZoomOutBtn->width() + 10);
+	_pZoomInBtn->move(x, 5);
+	_pZoomOutBtn->move(x + _pZoomInBtn->width() + 5, 5);
+	refreshPixmap();
 }
 
 void Plotter::mousePressEvent(QMouseEvent* event)
 {
+	QRect rect(MARGIN, MARGIN, width() - 2 * MARGIN, height() - 2 * MARGIN);
 
+	if (event->button() != Qt::LeftButton){
+		return;
+	}
+	if (!rect.contains(event->pos())) {
+		return;
+	}
+
+	_rubberBandIsShown = true;
+	_rubberBandRect.setTopLeft(event->pos());
+	_rubberBandRect.setBottomRight(event->pos());
+	updateRubberBandRegion();
+	setCursor(Qt::CrossCursor);
 }
 
 void Plotter::mouseMoveEvent(QMouseEvent* event)
 {
-
+	if (_rubberBandIsShown == false) {
+		return;
+	}
+	updateRubberBandRegion();
+	_rubberBandRect.setBottomRight(event->pos());
+	updateRubberBandRegion();
 }
 
 void Plotter::mouseReleaseEvent(QMouseEvent* event)
 {
-
+	if ((event->button() == Qt::LeftButton) && _rubberBandIsShown) {
+		_rubberBandIsShown = false;
+		unsetCursor();
+		QRect rect = _rubberBandRect.normalized();
+		if ((rect.width() < 4) || (rect.height() < 4)) {
+			return;
+		}
+		rect.translate(-MARGIN, -MARGIN);
+		PlotSettings prevSettings = _zoomStack[_curZoom];
+		PlotSettings settings;
+		double dx = prevSettings.spanX() / (width() - 2 * MARGIN);
+		double dy = prevSettings.spanY() / (height() - 2 * MARGIN);
+		settings.minX = prevSettings.minX + dx * rect.left();
+		settings.maxX = prevSettings.minX + dx * rect.right();
+		settings.minY = prevSettings.minY + dy * rect.bottom();
+		settings.maxY = prevSettings.minY + dy * rect.top();
+		settings.adjust();
+		_zoomStack.resize(_curZoom + 1);
+		_zoomStack.append(settings);
+		zoomIn();
+	}
 }
 
 void Plotter::keyPressEvent(QKeyEvent* event)
 {
-
+	switch (event->key()) {
+	case Qt::Key_Plus:
+		zoomIn();
+		return;
+	case Qt::Key_Minus:
+		zoomOut();
+		return;
+	case Qt::Key_Left:
+		_zoomStack[_curZoom].scroll(-1, 0);
+		refreshPixmap();
+		return;
+	case Qt::Key_Right:
+		_zoomStack[_curZoom].scroll(+1, 0);
+		refreshPixmap();
+		return;
+	case Qt::Key_Down:
+		_zoomStack[_curZoom].scroll(0, -1);
+		refreshPixmap();
+		return;
+	case Qt::Key_Up:
+		_zoomStack[_curZoom].scroll(0, +1);
+		refreshPixmap();
+		return;
+	}
+	QWidget::keyPressEvent(event);
 }
 
 void Plotter::wheelEvent(QWheelEvent* event)
 {
+	int numDegrees = event->delta() / 8;
+	int numTicks = numDegrees / 15;
 
+	if (event->orientation() == Qt::Horizontal) {
+		_zoomStack[_curZoom].scroll(numTicks, 0);
+	}
+	else {
+		_zoomStack[_curZoom].scroll(0, numTicks);
+	}
+	refreshPixmap();
 }
 
 void Plotter::updateRubberBandRegion()
 {
-
+	QRect rect = _rubberBandRect.normalized();
+	update(rect.left(), rect.top(), rect.width(), 1);
+	update(rect.left(), rect.top(), 1, rect.height());
+	update(rect.left(), rect.bottom(), rect.width(), 1);
+	update(rect.right(), rect.top(), 1, rect.height());
 }
 
 void Plotter::refreshPixmap()
 {
-
+	_pixmap = QPixmap(size());
+//	_pixmap.fill(this, 0, 0);
+	_pixmap.fill(backgroundRole());
+	QPainter painter(&_pixmap);
+	painter.begin(this);
+	drawGrid(&painter);
+	drawCurves(&painter);
+	update();
 }
 
 void Plotter::drawGrid(QPainter* painter)
