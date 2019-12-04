@@ -45,6 +45,28 @@ void Plotter::setPlotSettings(const PlotSettings& settings)
     refreshPixmap();
 }
 
+void Plotter::zoomOut()
+{
+    if (_curZoom > 0 ) {
+        --_curZoom;
+        _pZoomOutBtn->setEnabled(_curZoom > 0);
+        _pZoomInBtn->setEnabled(true);
+        _pZoomInBtn->show();
+        refreshPixmap();
+    }
+}
+
+void Plotter::zoomIn()
+{
+    if (_curZoom < _zoomStack.count() - 1) {
+        ++_curZoom;
+        _pZoomInBtn->setEnabled(_curZoom < _zoomStack.count() - 1);
+        _pZoomOutBtn->setEnabled(true);
+        _pZoomOutBtn->show();
+        refreshPixmap();
+    }
+}
+
 void Plotter::setCurveData(int id, const QVector<QPointF>& data)
 {
     _curveMap[id] = data;
@@ -65,28 +87,6 @@ QSize Plotter::minimumSizeHint() const
 QSize Plotter::sizeHint() const
 {
     return QSize(12 * MARGIN, 8 * MARGIN);
-}
-
-void Plotter::zoomIn()
-{
-    if (_curZoom < _zoomStack.count() - 1) {
-        ++_curZoom;
-        _pZoomInBtn->setEnabled(_zoomStack.count() - 1);
-        _pZoomOutBtn->setEnabled(true);
-        _pZoomOutBtn->show();
-        refreshPixmap();
-    }
-}
-
-void Plotter::zoomOut()
-{
-    if (_curZoom > 0 ) {
-        --_curZoom;
-        _pZoomOutBtn->setEnabled(_curZoom > 0);
-        _pZoomInBtn->setEnabled(true);
-        _pZoomInBtn->show();
-        refreshPixmap();
-    }
 }
 
 void Plotter::paintEvent(QPaintEvent* event)
@@ -149,6 +149,7 @@ void Plotter::mouseReleaseEvent(QMouseEvent* event)
 {
     if ((event->button() == Qt::LeftButton) && _rubberBandIsShown) {
         _rubberBandIsShown = false;
+        updateRubberBandRegion();
         unsetCursor();
         QRect rect = _rubberBandRect.normalized();
         if ((rect.width() < 4) || (rect.height() < 4)) {
@@ -161,8 +162,8 @@ void Plotter::mouseReleaseEvent(QMouseEvent* event)
         double dy = prevSettings.spanY() / (height() - 2 * MARGIN);
         settings.minX = prevSettings.minX + dx * rect.left();
         settings.maxX = prevSettings.minX + dx * rect.right();
-        settings.minY = prevSettings.minY + dy * rect.bottom();
-        settings.maxY = prevSettings.minY + dy * rect.top();
+        settings.minY = prevSettings.maxY - dy * rect.bottom();
+        settings.maxY = prevSettings.maxY - dy * rect.top();
         settings.adjust();
         _zoomStack.resize(_curZoom + 1);
         _zoomStack.append(settings);
@@ -251,7 +252,7 @@ void Plotter::drawGrid(QPainter* painter)
         painter->setPen(quiteDark);
         painter->drawLine(x, rect.top(), x, rect.bottom());
         painter->setPen(light);
-        painter->drawLine(x, rect.bottom() + 5, x, rect.bottom()+ 5);
+        painter->drawLine(x, rect.bottom(), x, rect.bottom() + 5);
         painter->drawText(x - 50, rect.bottom() + 5, 100, 20,
                           Qt::AlignHCenter | Qt::AlignTop,
                           QString::number(lbl));
